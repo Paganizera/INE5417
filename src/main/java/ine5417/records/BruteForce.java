@@ -6,5 +6,5 @@ package ine5417.records;
  * @param result   The potential decrypted plaintext message.
  * @param score    The calculated score. Higher scores are better.
  */
-public record BruteForce(String language, String result, Float score) {
+public record BruteForce(String language, String result, String key, Float score) {
 }

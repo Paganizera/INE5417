@@ -74,6 +74,5 @@ public final class Frequency {
                         return Stream.of(Map.entry((byte) c, freq));
                     })
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
         }
 }

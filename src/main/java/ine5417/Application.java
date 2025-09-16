@@ -8,7 +8,6 @@ import ine5417.records.Ciphered;
 import ine5417.records.Deciphered;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.info.Contact;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.apache.coyote.BadRequestException;
@@ -16,22 +15,19 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.http.MediaType;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @SpringBootApplication
 @RestController
-@EnableMethodSecurity
 @OpenAPIDefinition(
         info = @Info(
                 title = Constants.APPLICATION_NAME,
                 version = Constants.APPLICATION_VERSION,
                 ///TODO: change application description
                 description = """
-                        """,
-                contact = @Contact(url = "https://validar.iti.gov.br/fale-conosco.html")
+                        """
         )
 )
 public class Application extends SpringBootServletInitializer {

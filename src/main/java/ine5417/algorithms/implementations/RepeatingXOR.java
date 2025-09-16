@@ -1,8 +1,8 @@
 package ine5417.algorithms.implementations;
 
-import org.apache.commons.lang3.tuple.Triple;
-
 import ine5417.commom.Frequency;
+import ine5417.records.BruteForce;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -27,15 +27,18 @@ public class RepeatingXOR extends SingleKeyXOR {
     }
 
     @Override
-    public List<Triple<String, byte[], Float>> bruteforce(byte[] ciphertext) {
-        List<Triple<String, byte[], Float>> results = new ArrayList<>();
+    public List<BruteForce> bruteforce(byte[] ciphertext) {
+        List<BruteForce> results = new ArrayList<>();
 
         // Iterate through all available language frequency profiles from your Frequency class
         for (String lang : Frequency.availableLanguages) {
             // Get the corresponding frequency table from your Frequency class
             Map<Byte, Float> langTable = Frequency.tables.get(lang);
+            if (ciphertext.length < 30) {
+                langTable.put((byte) ' ', 7f);
+            }
 
-            CrackResult bestResultForLang = null;
+            BruteForce bestResultForLang = new BruteForce("", "", "", -1f);
 
             // Step 1: Find the most likely key lengths (we'll test the top 3)
             List<Integer> keyLengths = findKeyLengths(ciphertext, 3);
@@ -50,26 +53,24 @@ public class RepeatingXOR extends SingleKeyXOR {
 
                 // Step 3: Solve each block as a single-byte XOR cipher
                 for (int i = 0; i < keyLength; i++) {
-                    key[i] = solveSingleByteXor(transposedBlocks.get(i), langTable).key;
+                    key[i] = solveSingleByteXor(transposedBlocks.get(i), langTable).getKey();
                 }
 
                 // Decrypt the full ciphertext with the discovered key
                 byte[] plaintext = execute(ciphertext, key);
-                float score = scorePlaintext(plaintext, langTable);
+                float score = calculateScore(plaintext, langTable);
 
                 // Check if this key is the best one we've found for this language so far
-                if (bestResultForLang == null || score > bestResultForLang.score) {
-                    bestResultForLang = new CrackResult(key, plaintext, score);
+                if (score > bestResultForLang.score()) {
+                    bestResultForLang = new BruteForce(lang, new String(plaintext), new String(key), score);
                 }
             }
 
-            if (bestResultForLang != null) {
-                results.add(Triple.of(lang, bestResultForLang.key, bestResultForLang.score));
-            }
+            results.add(bestResultForLang);
         }
 
         // Sort results from best to worst score
-        results.sort((a, b) -> b.getRight().compareTo(a.getRight()));
+        results.sort((a, b) -> b.score().compareTo(a.score()));
         return results;
     }
 
@@ -117,28 +118,21 @@ public class RepeatingXOR extends SingleKeyXOR {
         return blocks;
     }
 
-    private SingleByteXorResult solveSingleByteXor(byte[] block, Map<Byte, Float> langTable) {
-        SingleByteXorResult bestResult = null;
+    private Pair<Byte, Float> solveSingleByteXor(byte[] block, Map<Byte, Float> langTable) {
+        Pair<Byte, Float> bestResult = null;
         for (int key = 0; key < 256; key++) {
             byte[] plaintext = new byte[block.length];
             for (int i = 0; i < block.length; i++) {
                 plaintext[i] = (byte) (block[i] ^ key);
             }
-            float score = scorePlaintext(plaintext, langTable);
-            if (bestResult == null || score > bestResult.score) {
-                bestResult = new SingleByteXorResult((byte) key, score);
+            float score = calculateScore(plaintext, langTable);
+            if (bestResult == null || score > bestResult.getRight()) {
+                bestResult = Pair.of((byte) key, score);
             }
         }
-        return bestResult != null ? bestResult : new SingleByteXorResult((byte) 0, 0f); // Fallback
+        return bestResult != null ? bestResult : Pair.of((byte) 0, 0f); // Fallback
     }
 
-    private float scorePlaintext(byte[] text, Map<Byte, Float> langTable) {
-        float score = 0;
-        for (byte b : text) {
-            score += langTable.getOrDefault(b, 0f);
-        }
-        return score;
-    }
 
     /**
      * CORRECTED VERSION of the execute method.
@@ -157,11 +151,6 @@ public class RepeatingXOR extends SingleKeyXOR {
         return output;
     }
 
-    // --- Private Helper Classes for Cracking Results ---
-
-    private record SingleByteXorResult(byte key, float score) {}
-
-    private record CrackResult(byte[] key, byte[] plaintext, float score) {}
 }
 
 

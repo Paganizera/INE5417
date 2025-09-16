@@ -17,6 +17,15 @@
         </processorPath>
         <module name="ine5417" />
       </profile>
+      <profile name="Annotation profile for INE5417" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.38/lombok-1.18.38.jar" />
+        </processorPath>
+        <module name="INE5417" />
+      </profile>
     </annotationProcessing>
   </component>
   <component name="JavacSettings">
