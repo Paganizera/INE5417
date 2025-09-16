@@ -25,7 +25,7 @@ public final class Frequency {
                     entry('u', 2.73f), entry('m', 2.51f), entry('f', 2.40f), entry('p', 2.14f),
                     entry('g', 1.87f), entry('w', 1.68f), entry('y', 1.66f), entry('b', 1.48f),
                     entry('v', 1.05f), entry('k', 0.54f), entry('x', 0.23f), entry('j', 0.16f),
-                    entry('q', 0.12f), entry('z', 0.09f), entry(' ', 20.0f)
+                    entry('q', 0.12f), entry('z', 0.09f), entry(' ', 5.0f)
             );
 
             // Defines the character frequency for the Portuguese language.
@@ -36,7 +36,7 @@ public final class Frequency {
                     entry('l', 2.78f), entry('p', 2.52f), entry('q', 1.20f), entry('v', 1.58f),
                     entry('g', 1.30f), entry('h', 1.28f), entry('b', 1.04f), entry('f', 1.02f),
                     entry('z', 0.47f), entry('j', 0.40f), entry('x', 0.21f), entry('k', 0.02f),
-                    entry('w', 0.01f), entry('y', 0.01f), entry(' ', 18.0f)
+                    entry('w', 0.01f), entry('y', 0.01f), entry(' ', 15.0f)
             );
 
             // Populates the public tables and list of available languages.

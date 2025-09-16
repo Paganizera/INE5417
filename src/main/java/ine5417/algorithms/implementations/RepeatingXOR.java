@@ -5,6 +5,7 @@ import ine5417.records.BruteForce;
 import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -16,60 +17,49 @@ public class RepeatingXOR extends SingleKeyXOR {
         return RepeatingXOR.IDENTIFIER;
     }
 
+    // ... (cipher and decipher methods are unchanged) ...
     @Override
-    public byte[] cipher(byte[] plaintext, byte[] key) {
-        return execute(plaintext, key);
-    }
+    public byte[] cipher(byte[] plaintext, byte[] key) { return execute(plaintext, key); }
+    @Override
+    public byte[] decipher(byte[] encrypted, byte[] key) { return execute(encrypted, key); }
 
-    @Override
-    public byte[] decipher(byte[] encrypted, byte[] key) {
-        return execute(encrypted, key);
-    }
 
     @Override
     public List<BruteForce> bruteforce(byte[] ciphertext) {
         List<BruteForce> results = new ArrayList<>();
-
-        // Iterate through all available language frequency profiles from your Frequency class
         for (String lang : Frequency.availableLanguages) {
-            // Get the corresponding frequency table from your Frequency class
-            Map<Byte, Float> langTable = Frequency.tables.get(lang);
+            Map<Byte, Float> langTable = new HashMap<>(Frequency.tables.get(lang)); // Use a copy
             if (ciphertext.length < 30) {
                 langTable.put((byte) ' ', 7f);
             }
 
             BruteForce bestResultForLang = new BruteForce("", "", "", -1f);
-
-            // Step 1: Find the most likely key lengths (we'll test the top 3)
-            List<Integer> keyLengths = findKeyLengths(ciphertext, 3);
+            List<Integer> keyLengths = findKeyLengths(ciphertext, 8);
 
             for (int keyLength : keyLengths) {
                 if (keyLength == 0) continue;
 
                 byte[] key = new byte[keyLength];
-
-                // Step 2: Transpose the ciphertext into blocks
                 List<byte[]> transposedBlocks = transposeCiphertext(ciphertext, keyLength);
 
-                // Step 3: Solve each block as a single-byte XOR cipher
                 for (int i = 0; i < keyLength; i++) {
-                    key[i] = solveSingleByteXor(transposedBlocks.get(i), langTable).getKey();
+                    key[i] = findBestSingleByteKey(transposedBlocks.get(i), langTable).getKey();
                 }
 
-                // Decrypt the full ciphertext with the discovered key
                 byte[] plaintext = execute(ciphertext, key);
                 float score = calculateScore(plaintext, langTable);
 
-                // Check if this key is the best one we've found for this language so far
                 if (score > bestResultForLang.score()) {
-                    bestResultForLang = new BruteForce(lang, new String(plaintext), new String(key), score);
+                    bestResultForLang = new BruteForce(
+                            lang,
+                            new String(plaintext, StandardCharsets.UTF_8),
+                            new String(key, StandardCharsets.UTF_8),
+                            score
+                    );
                 }
             }
-
             results.add(bestResultForLang);
         }
-
-        // Sort results from best to worst score
         results.sort((a, b) -> b.score().compareTo(a.score()));
         return results;
     }
@@ -82,21 +72,31 @@ public class RepeatingXOR extends SingleKeyXOR {
         return distance;
     }
 
+
     private List<Integer> findKeyLengths(byte[] ciphertext, int count) {
         Map<Integer, Float> distances = new HashMap<>();
-        int maxKeyLength = Math.min(40, ciphertext.length / 2);
+        for (int keyLength = 2; keyLength <= Math.min(30,ciphertext.length / 5); keyLength++) {
+            byte[] chunk1 = Arrays.copyOfRange(ciphertext, 0, keyLength);
+            byte[] chunk2 = Arrays.copyOfRange(ciphertext, keyLength, 2 * keyLength);
+            byte[] chunk3 = Arrays.copyOfRange(ciphertext, 2 * keyLength, 3 * keyLength);
+            byte[] chunk4 = Arrays.copyOfRange(ciphertext, 3 * keyLength, 4 * keyLength);
+            byte[] chunk5 = Arrays.copyOfRange(ciphertext, 4 * keyLength, 5 * keyLength);
 
-        for (int keyLength = 2; keyLength <= maxKeyLength; keyLength++) {
-            int chunksToTest = Math.min(4, ciphertext.length / (keyLength * 2));
-            if (chunksToTest == 0) continue;
+            // Calculate normalized distance for all 10 pairs
+            float dist1 = (float) hammingDistance(chunk1, chunk2) / keyLength;
+            float dist2 = (float) hammingDistance(chunk1, chunk3) / keyLength;
+            float dist3 = (float) hammingDistance(chunk1, chunk4) / keyLength;
+            float dist4 = (float) hammingDistance(chunk1, chunk5) / keyLength;
+            float dist5 = (float) hammingDistance(chunk2, chunk3) / keyLength;
+            float dist6 = (float) hammingDistance(chunk2, chunk4) / keyLength;
+            float dist7 = (float) hammingDistance(chunk2, chunk5) / keyLength;
+            float dist8 = (float) hammingDistance(chunk3, chunk4) / keyLength;
+            float dist9 = (float) hammingDistance(chunk3, chunk5) / keyLength;
+            float dist10 = (float) hammingDistance(chunk4, chunk5) / keyLength;
 
-            float totalNormalizedDistance = 0;
-            for(int i = 0; i < chunksToTest; i++) {
-                byte[] chunk1 = Arrays.copyOfRange(ciphertext, i * keyLength, (i + 1) * keyLength);
-                byte[] chunk2 = Arrays.copyOfRange(ciphertext, (i + 1) * keyLength, (i + 2) * keyLength);
-                totalNormalizedDistance += (float) hammingDistance(chunk1, chunk2) / keyLength;
-            }
-            distances.put(keyLength, totalNormalizedDistance / chunksToTest);
+            // Average the 10 distances
+            float averageDistance = (dist1 + dist2 + dist3 + dist4 + dist5 + dist6 + dist7 + dist8 + dist9 + dist10) / 10.0f;
+            distances.put(keyLength, averageDistance);
         }
 
         return distances.entrySet().stream()
@@ -118,43 +118,12 @@ public class RepeatingXOR extends SingleKeyXOR {
         return blocks;
     }
 
-    private Pair<Byte, Float> solveSingleByteXor(byte[] block, Map<Byte, Float> langTable) {
-        Pair<Byte, Float> bestResult = null;
-        for (int key = 0; key < 256; key++) {
-            byte[] plaintext = new byte[block.length];
-            for (int i = 0; i < block.length; i++) {
-                plaintext[i] = (byte) (block[i] ^ key);
-            }
-            float score = calculateScore(plaintext, langTable);
-            if (bestResult == null || score > bestResult.getRight()) {
-                bestResult = Pair.of((byte) key, score);
-            }
-        }
-        return bestResult != null ? bestResult : Pair.of((byte) 0, 0f); // Fallback
-    }
-
-
-    /**
-     * CORRECTED VERSION of the execute method.
-     * It now creates a new byte array for the output instead of modifying
-     * the input array, preventing the original ciphertext from being corrupted.
-     *
-     * @param input The byte array to be processed (plaintext or ciphertext).
-     * @param key The XOR key.
-     * @return A new byte array containing the result.
-     */
     private byte[] execute(byte[] input, byte[] key) {
+        if (key == null || key.length == 0) return input;
         byte[] output = new byte[input.length];
         for (int i = 0; i < input.length; i++) {
             output[i] = (byte) (input[i] ^ key[i % key.length]);
         }
         return output;
     }
-
 }
-
-
-
-
-
-

@@ -9,9 +9,12 @@ import ine5417.records.Deciphered;
 import org.apache.coyote.BadRequestException;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class CipherController {
@@ -27,7 +30,10 @@ public class CipherController {
      */
     public Ciphered encrypt(String plaintext, String cipher, String key) throws BadRequestException {
         Algorithm algorithm = getAlgorithm(cipher);
-        byte[] message = algorithm.cipher(plaintext.getBytes(), key.getBytes());
+        byte[] message = algorithm.cipher(
+                plaintext.getBytes(StandardCharsets.UTF_8),
+                key.getBytes(StandardCharsets.UTF_8)
+        );
         String encodedMessage = Base64.getEncoder().encodeToString(message);
         return new Ciphered(encodedMessage, cipher, key);
     }
@@ -43,10 +49,12 @@ public class CipherController {
      */
     public Deciphered decrypt(String encrypted, String cipher, String key) throws BadRequestException {
         Algorithm algorithm = getAlgorithm(cipher);
-        byte[] encryptedBytes = Base64.getDecoder().decode(encrypted);
-        byte[] message = algorithm.decipher(encryptedBytes, key.getBytes());
-
-        return new Deciphered(new String(message), cipher, key);
+        byte[] encryptedBytes = Base64.getDecoder().decode(encrypted.replace(' ', '+'));
+        byte[] message = algorithm.decipher(
+                encryptedBytes,
+                key.getBytes(StandardCharsets.UTF_8)
+        );
+        return new Deciphered(new String(message, StandardCharsets.UTF_8), cipher, key);
     }
 
     /**
@@ -59,10 +67,11 @@ public class CipherController {
      */
     public BruteForceResult bruteforce(String encrypted, String cipher) throws BadRequestException {
         Algorithm algorithm = getAlgorithm(cipher);
-        List<BruteForce> result = algorithm.bruteforce(Base64.getDecoder().decode(encrypted));
+        List<BruteForce> result = algorithm.bruteforce(Base64.getDecoder().decode(encrypted.replace(' ', '+')));
 
         return new BruteForceResult(cipher, result);
     }
+
 
     /**
      * Retrieves an algorithm implementation from the factory based on its identifier.

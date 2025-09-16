@@ -3,18 +3,15 @@ package ine5417.algorithms.implementations;
 import ine5417.algorithms.Algorithm;
 import ine5417.commom.Frequency;
 import ine5417.records.BruteForce;
-import org.apache.commons.lang3.tuple.Triple;
+import org.apache.commons.lang3.tuple.Pair; // You might need to add this import
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class SingleKeyXOR implements Algorithm {
     public static final String IDENTIFIER = "singlekeyxor";
-
-    public static String getIdentifier() {
-        return SingleKeyXOR.IDENTIFIER;
-    }
 
     @Override
     public byte[] cipher(byte[] toCipher, byte[] key) {
@@ -31,49 +28,54 @@ public class SingleKeyXOR implements Algorithm {
         List<BruteForce> result = new ArrayList<>();
         for (String lang : Frequency.availableLanguages) {
             Map<Byte, Float> langTable = Frequency.tables.get(lang);
-            if (ciphertext.length < 30) {
-                langTable.put((byte) ' ', 7f);
-            }
 
-            byte[] bestGuess = new byte[0];
-            byte key = 0;
-            float bestScore = Float.NEGATIVE_INFINITY;
+            Pair<Byte, Float> bestResult = findBestSingleByteKey(ciphertext, langTable);
+            byte bestKey = bestResult.getKey();
+            float bestScore = bestResult.getValue();
 
-            for (int keyGuess = 0; keyGuess < 256; keyGuess++) {
-                byte currentKey = (byte) keyGuess;
+            byte[] bestGuess = execute(ciphertext, new byte[]{bestKey});
 
-                byte[] potentialPlaintext = ciphertext.clone();
-                execute(potentialPlaintext, new byte[]{currentKey});
-
-                float score = calculateScore(potentialPlaintext, langTable);
-
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestGuess = potentialPlaintext;
-                    key = currentKey;
-                }
-            }
-
-            result.add(new BruteForce(lang, new String(bestGuess), String.valueOf(key), bestScore));
+            result.add(new BruteForce(
+                    lang,
+                    new String(bestGuess, StandardCharsets.UTF_8),
+                    String.valueOf((char)bestKey),
+                    bestScore
+            ));
         }
         return result;
+    }
+
+    public Pair<Byte, Float> findBestSingleByteKey(byte[] ciphertext, Map<Byte, Float> langTable) {
+        byte bestKey = 0;
+        float bestScore = Float.NEGATIVE_INFINITY;
+
+        for (int keyGuess = 0; keyGuess < 256; keyGuess++) {
+            byte currentKey = (byte) keyGuess;
+            byte[] potentialPlaintext = execute(ciphertext, new byte[]{currentKey});
+            float score = calculateScore(potentialPlaintext, langTable);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestKey = currentKey;
+            }
+        }
+        return Pair.of(bestKey, bestScore);
     }
 
 
     protected float calculateScore(byte[] plaintext, Map<Byte, Float> frequencyTable) {
         float score = 0;
         for (byte b : plaintext) {
-            // If byte 'b' is not in the map, use 0.0f as its score instead of getting null.
-            score += frequencyTable.getOrDefault(b, 0.0f);
+            score += frequencyTable.getOrDefault(b, -5.0f);
         }
         return score;
     }
 
     private byte[] execute(byte[] message, byte[] key) {
-        // The operation is done over key[0] in the constraints of a single key xor algorithm
+        byte[] output = new byte[message.length];
         for (int i = 0; i < message.length; i++) {
-            message[i] ^= key[0];
+            output[i] = (byte) (message[i] ^ key[0]);
         }
-        return message;
+        return output;
     }
 }
