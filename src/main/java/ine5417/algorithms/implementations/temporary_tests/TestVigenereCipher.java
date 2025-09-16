@@ -1,4 +1,4 @@
-package ine5417.algorithms.implementations;
+package ine5417.algorithms.implementations.temporary_tests;
 
 import ine5417.algorithms.Algorithm;
 import ine5417.algorithms.implementations.Vigenere;
@@ -78,6 +78,7 @@ class TestVigenereCipher {
             System.out.println("   - Chave    : \"" + topResult.key() + "\" (Esperado: \"" + KEY + "\")");
             System.out.println("   - Texto    : \"" + topResult.result() + "\"");
             System.out.println("   - Pontuação    : \"" + topResult.score() + "\"");
+            System.out.println("   - Idioma    : \"" + topResult.language() + "\"");
 
             // Verifica se a chave encontrada (ignorando case) e o texto são os corretos.
             if (topResult.key().equalsIgnoreCase(KEY) && topResult.result().equals(PLAINTEXT)) {

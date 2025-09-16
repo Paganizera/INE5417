@@ -1,24 +1,18 @@
 package ine5417.algorithms.implementations;
 
 import ine5417.algorithms.Algorithm;
+import ine5417.commom.Frequency; // Importa a nova classe de frequência
 import ine5417.records.BruteForce;
+
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class Vigenere implements Algorithm {
 
-    // Frequência das letras no idioma Inglês. Usado para o ataque de força bruta.
-    // Fonte: Wikipedia
-    private static final double[] ENGLISH_FREQUENCIES = {
-            0.08167, 0.01492, 0.02782, 0.04253, 0.12702, 0.02228, 0.02015, // A-G
-            0.06094, 0.06966, 0.00153, 0.00772, 0.04025, 0.02406, 0.06749, // H-N
-            0.07507, 0.01929, 0.00095, 0.05987, 0.06327, 0.09056, 0.02758, // O-U
-            0.00978, 0.02360, 0.00150, 0.01974, 0.00074  // V-Z
-    };
-
     private static final int ALPHABET_SIZE = 26;
-    private static final int MAX_KEY_LENGTH_TO_TEST = 20; // Limite para o teste de força bruta
+    private static final int MAX_KEY_LENGTH_TO_TEST = 20;
 
     @Override
     public byte[] cipher(byte[] plaintext, byte[] key) {
@@ -30,26 +24,13 @@ public class Vigenere implements Algorithm {
         return process(toDecrypt, key, false);
     }
 
-    /**
-     * Processa a (de)criptografia Vigenère.
-     *
-     * @param input   Os dados de entrada (texto claro ou cifrado).
-     * @param key     A chave.
-     * @param encrypt True para criptografar, false para descriptografar.
-     * @return O resultado do processamento.
-     */
     private byte[] process(byte[] input, byte[] key, boolean encrypt) {
-        if (key == null || key.length == 0) {
-            return input; // Retorna o texto original se a chave for inválida
-        }
-
+        if (key == null || key.length == 0) return input;
         byte[] output = new byte[input.length];
         int keyIndex = 0;
-
         for (int i = 0; i < input.length; i++) {
             char charIn = (char) input[i];
             char charKey = (char) key[keyIndex % key.length];
-
             if (charIn >= 'a' && charIn <= 'z') {
                 int shift = Character.toUpperCase(charKey) - 'A';
                 int offset = encrypt ? (charIn - 'a' + shift) : (charIn - 'a' - shift + ALPHABET_SIZE);
@@ -61,82 +42,65 @@ public class Vigenere implements Algorithm {
                 output[i] = (byte) ('A' + (offset % ALPHABET_SIZE));
                 keyIndex++;
             } else {
-                // Mantém caracteres não alfabéticos (espaços, pontuação, etc.)
                 output[i] = (byte) charIn;
             }
         }
         return output;
     }
 
-    /**
-     * Tenta quebrar a cifra por força bruta usando criptoanálise.
-     *
-     * @param ciphertext O texto cifrado a ser atacado.
-     * @return Uma lista de possíveis soluções (chave, texto decifrado, pontuação).
-     */
     @Override
     public List<BruteForce> bruteforce(byte[] ciphertext) {
-        // 1. Extrair apenas as letras do texto cifrado para análise
+        List<BruteForce> allResults = new ArrayList<>();
+
+        // 1. Extrai apenas as letras para encontrar o tamanho da chave.
+        // A lógica do IC é uma boa heurística e não precisa ser multilíngue.
         StringBuilder lettersOnly = new StringBuilder();
-        for (byte b : ciphertext) {
-            char c = (char) b;
-            if (Character.isLetter(c)) {
-                lettersOnly.append(Character.toUpperCase(c));
-            }
-        }
+        for (byte b : ciphertext) if (Character.isLetter((char) b)) lettersOnly.append(Character.toUpperCase((char) b));
         String analyzableText = lettersOnly.toString();
 
-        // 2. Adivinhar o comprimento da chave usando Índice de Coincidência
         int bestKeyLength = findKeyLength(analyzableText);
 
-        // 3. Quebrar as Cifras de César para cada coluna do texto
-        StringBuilder guessedKey = new StringBuilder();
-        for (int i = 0; i < bestKeyLength; i++) {
-            // Monta a sub-string para a coluna i
-            StringBuilder column = new StringBuilder();
-            for (int j = i; j < analyzableText.length(); j += bestKeyLength) {
-                column.append(analyzableText.charAt(j));
+        // 2. Itera sobre cada idioma disponível na classe Frequency
+        for (String lang : Frequency.availableLanguages) {
+            // 3. Encontra a chave mais provável PARA ESTE IDIOMA
+            StringBuilder guessedKey = new StringBuilder();
+            for (int i = 0; i < bestKeyLength; i++) {
+                StringBuilder column = new StringBuilder();
+                for (int j = i; j < analyzableText.length(); j += bestKeyLength) {
+                    column.append(analyzableText.charAt(j));
+                }
+                guessedKey.append(findBestKeyCharForColumn(column.toString(), lang));
             }
 
-            // Encontra o melhor caractere da chave para esta coluna
-            guessedKey.append(findBestKeyCharForColumn(column.toString()));
+            // 4. Descriptografa e calcula o score
+            String keyFound = guessedKey.toString();
+            byte[] plaintextBytes = decipher(ciphertext, keyFound.getBytes(StandardCharsets.UTF_8));
+            String resultText = new String(plaintextBytes, StandardCharsets.UTF_8);
+
+            // O score é baseado na análise Qui-quadrado do texto final.
+            // Menor Qui-quadrado = melhor. Invertemos para que maior seja melhor.
+            double chiSquaredScore = calculateChiSquared(resultText, lang);
+            float finalScore = (float) (1 / (chiSquaredScore + 1e-9)); // Adiciona epsilon para evitar divisão por zero
+
+            allResults.add(new BruteForce(lang, resultText, keyFound, finalScore));
         }
 
-        // 4. Descriptografar o texto com a chave encontrada
-        String keyFound = guessedKey.toString();
-        byte[] plaintextBytes = decipher(ciphertext, keyFound.getBytes(StandardCharsets.UTF_8));
-        String resultText = new String(plaintextBytes, StandardCharsets.UTF_8);
-
-        // 5. Criar o objeto BruteForce com todos os dados
-        // A pontuação é inversamente proporcional ao tamanho da chave (chaves menores são mais "certas")
-        float score = 1.0f / bestKeyLength;
-
-        BruteForce result = new BruteForce("English", resultText, keyFound, score);
-
-        return Collections.singletonList(result);
+        // 5. Ordena os resultados pelo score, do maior para o menor
+        allResults.sort(Comparator.comparing(BruteForce::score).reversed());
+        return allResults;
     }
 
-    /**
-     * Encontra o comprimento da chave mais provável.
-     */
     private int findKeyLength(String text) {
         int bestKeyLength = 1;
         double bestIc = 0.0;
-
         for (int keyLength = 2; keyLength <= MAX_KEY_LENGTH_TO_TEST; keyLength++) {
             double avgIc = 0.0;
-            // Calcula o IC médio para todas as colunas
             for (int i = 0; i < keyLength; i++) {
                 StringBuilder column = new StringBuilder();
-                for (int j = i; j < text.length(); j += keyLength) {
-                    column.append(text.charAt(j));
-                }
+                for (int j = i; j < text.length(); j += keyLength) column.append(text.charAt(j));
                 avgIc += calculateIC(column.toString());
             }
             avgIc /= keyLength;
-
-            // O IC de inglês é ~0.067. O comprimento da chave que mais se aproxima
-            // deste valor é o mais provável.
             if (Math.abs(avgIc - 0.067) < Math.abs(bestIc - 0.067)) {
                 bestIc = avgIc;
                 bestKeyLength = keyLength;
@@ -145,41 +109,26 @@ public class Vigenere implements Algorithm {
         return bestKeyLength;
     }
 
-    /**
-     * Calcula o Índice de Coincidência (IC) de um texto.
-     */
     private double calculateIC(String text) {
-        if (text.length() < 2) { // prevents a zero division
-            return 0.0;
-        }
+        if (text.length() < 2) return 0.0;
         int[] frequencies = new int[ALPHABET_SIZE];
-        for (char c : text.toCharArray()) {
-            frequencies[c - 'A']++;
-        }
-
+        for (char c : text.toCharArray()) frequencies[c - 'A']++;
         double sum = 0.0;
-        for (int freq : frequencies) {
-            sum += freq * (freq - 1);
-        }
-
+        for (int freq : frequencies) sum += freq * (freq - 1);
         return sum / (text.length() * (text.length() - 1.0));
     }
 
-    /**
-     * Encontra o caractere da chave para uma coluna (Cifra de César) usando Qui-quadrado.
-     */
-    private char findBestKeyCharForColumn(String column) {
+    private char findBestKeyCharForColumn(String column, String language) {
         double minChiSquared = Double.POSITIVE_INFINITY;
         char bestKeyChar = 'A';
-
         for (int shift = 0; shift < ALPHABET_SIZE; shift++) {
             StringBuilder decryptedColumn = new StringBuilder();
             for (char c : column.toCharArray()) {
                 int decryptedCharIndex = (c - 'A' - shift + ALPHABET_SIZE) % ALPHABET_SIZE;
                 decryptedColumn.append((char) ('A' + decryptedCharIndex));
             }
-
-            double chiSquared = calculateChiSquared(decryptedColumn.toString());
+            // Passa o idioma para o cálculo
+            double chiSquared = calculateChiSquared(decryptedColumn.toString(), language);
             if (chiSquared < minChiSquared) {
                 minChiSquared = chiSquared;
                 bestKeyChar = (char) ('A' + shift);
@@ -188,23 +137,31 @@ public class Vigenere implements Algorithm {
         return bestKeyChar;
     }
 
-    /**
-     * Calcula o valor Qui-quadrado de um texto contra as frequências do inglês.
-     */
-    private double calculateChiSquared(String text) {
-        if (text.isEmpty()) {
-            return Double.POSITIVE_INFINITY; // Um texto vazio tem um score infinitamente ruim
-        }
-        int[] observedFrequencies = new int[ALPHABET_SIZE];
-        for (char c : text.toCharArray()) {
-            observedFrequencies[c - 'A']++;
-        }
+    private double calculateChiSquared(String text, String language) {
+        if (text.isEmpty()) return Double.POSITIVE_INFINITY;
+
+        Map<Byte, Float> expectedFrequencies = Frequency.tables.get(language);
+        if (expectedFrequencies == null) return Double.POSITIVE_INFINITY; // Idioma não encontrado
+
+        // Conta a frequência dos bytes no texto de entrada
+        Map<Byte, Long> observedCounts = text.chars()
+                .mapToObj(c -> (byte) c)
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
         double chiSquared = 0.0;
-        for (int i = 0; i < ALPHABET_SIZE; i++) {
-            double expected = text.length() * ENGLISH_FREQUENCIES[i];
-            double observed = observedFrequencies[i];
-            chiSquared += Math.pow(observed - expected, 2) / expected;
+        int textLength = text.length();
+
+        // Itera sobre os caracteres esperados no idioma
+        for (Map.Entry<Byte, Float> entry : expectedFrequencies.entrySet()) {
+            byte character = entry.getKey();
+            float expectedPercent = entry.getValue();
+
+            double expectedCount = (textLength * expectedPercent) / 100.0;
+            long observedCount = observedCounts.getOrDefault(character, 0L);
+
+            if (expectedCount > 0) { // Evita divisão por zero
+                chiSquared += Math.pow(observedCount - expectedCount, 2) / expectedCount;
+            }
         }
         return chiSquared;
     }
