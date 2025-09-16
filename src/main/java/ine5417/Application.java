@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @SpringBootApplication
 @RestController
 @OpenAPIDefinition(
@@ -66,5 +68,12 @@ public class Application extends SpringBootServletInitializer {
     public BruteForceResult bruteforce(@RequestParam("toDecrypt") String toDecrypt,
                                        @RequestParam("cipher") String cipher) throws BadRequestException {
         return cipherController.bruteforce(toDecrypt, cipher);
+    }
+
+    @Operation(description = "ListCiphers")
+    @ApiResponse(responseCode = "200", description = "Successfully listed ciphers")
+    @GetMapping(value = Endpoints.LIST_CIPHERS, produces = MediaType.APPLICATION_JSON_VALUE)
+    public List<String> bruteforce() {
+        return cipherController.listCiphers();
     }
 }

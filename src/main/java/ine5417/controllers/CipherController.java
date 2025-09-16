@@ -88,4 +88,8 @@ public class CipherController {
         }
         return algorithm.get();
     }
+
+    public List<String> listCiphers() {
+        return AlgorithmFactory.getAlgorithmIdentifiers();
+    }
 }

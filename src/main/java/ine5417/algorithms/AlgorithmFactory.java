@@ -2,9 +2,7 @@ package ine5417.algorithms;
 
 import org.reflections.Reflections;
 
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -50,5 +48,9 @@ public final class AlgorithmFactory {
             }
         }
         return Optional.empty();
+    }
+
+    public static List<String> getAlgorithmIdentifiers() {
+        return new ArrayList<>(ALGORITHMS.keySet());
     }
 }
