@@ -10,7 +10,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class Vigenere implements Algorithm {
-
+    public static final String IDENTIFIER = "vigenere";
     private static final int ALPHABET_SIZE = 26;
     private static final int MAX_KEY_LENGTH_TO_TEST = 20;
 
