@@ -18,18 +18,34 @@ public class Caesar implements Algorithm {
 
     @Override
     public byte[] cipher(byte[] toCipher, byte[] key) {
-        return execute_encrypt(toCipher, key[0]);
+        byte treatedKey = treatKey(key[0]);
+        return execute_encrypt(toCipher, treatedKey);
     }
 
     @Override
     public byte[] decipher(byte[] encrypted, byte[] key) {
-        return execute_decrypt(encrypted, key[0]);
+        byte treatedKey = treatKey(key[0]);
+        return execute_decrypt(encrypted, treatedKey);
+    }
+
+    private byte treatKey(byte key) {
+        int treatedKey = ((key % 26) + 26) % 26;
+        return (byte) treatedKey;
     }
 
     private byte[] execute_encrypt(byte[] plaintext, byte key) {
         byte[] encrypted = new byte[plaintext.length];
         for (int i = 0; i < plaintext.length; i++) {
-            encrypted[i] = (byte) (text[i] + key);
+            char letter = (char) plaintext[i];
+            if (letter >= 'a' && letter <= 'z') {
+                char shifted = (char) ('a' + (letter - 'a' + key) % 26);
+                encrypted[i] = (byte) shifted;
+            } else if (letter >= 'A' && letter <= 'Z') {
+                char shifted = (char) ('A' + (letter - 'A' + key) % 26);
+                encrypted[i] = (byte) shifted;
+            } else {
+                encrypted[i] = plaintext[i];
+            }
         }
         return encrypted;
     }
@@ -37,7 +53,16 @@ public class Caesar implements Algorithm {
     private byte[] execute_decrypt(byte[] encrypted, byte key) {
         byte[] plaintext = new byte[encrypted.length];
         for (int i = 0; i < encrypted.length; i++) {
-            plaintext[i] = (byte) (encrypted[i] - key);
+            char character = (char) encrypted[i];
+            if (character >= 'a' && character <= 'z') {
+                int temp = (character - 'a' - key + 26) % 26;
+                plaintext[i] = (byte) ('a' + temp);
+            } else if (character >= 'A' && character <= 'Z') {
+                int temp = (character - 'A' - key + 26) % 26;
+                plaintext[i] = (byte) ('A' + temp);
+            } else {
+                plaintext[i] = encrypted[i];
+            }
         }
         return plaintext;
     }
