@@ -1,44 +1,51 @@
 package ine5417.algorithms;
 
-import ine5417.algorithms.implementations.RepeatingXOR;
-import ine5417.algorithms.implementations.SingleKeyXOR;
+import org.reflections.Reflections;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
- * Class used for maintenance of algorithms implementations and obtainability
+ * This factory automatically discovers all classes that implement the Algorithm
+ * interface by reading their public static IDENTIFIER field.
  */
 public final class AlgorithmFactory {
 
-    private static final Map<String, Class<? extends Algorithm>> ALGORITHMS = Map.of(
-            SingleKeyXOR.getIdentifier(), SingleKeyXOR.class,
-            RepeatingXOR.getIdentifier(), RepeatingXOR.class
-    );
+    private static final Map<String, Class<? extends Algorithm>> ALGORITHMS = initializeAlgorithms();
 
-    /**
-     * Private constructor to prevent instantiation of this utility class.
-     */
-    private AlgorithmFactory() {
+    private AlgorithmFactory() {}
+
+    private static Map<String, Class<? extends Algorithm>> initializeAlgorithms() {
+        Reflections reflections = new Reflections("ine5417.algorithms.implementations");
+        Set<Class<? extends Algorithm>> algorithmClasses = reflections.getSubTypesOf(Algorithm.class);
+
+        return algorithmClasses.stream()
+                .collect(Collectors.toMap(
+                        AlgorithmFactory::getIdentifierFromClass, clazz -> clazz
+                ));
+    }
+
+
+    private static String getIdentifierFromClass(Class<? extends Algorithm> algorithmClass) {
+        try {
+            return (String) algorithmClass.getField("IDENTIFIER").get(null);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new IllegalStateException(
+                    "Algorithm class " + algorithmClass.getName() + " must have a public static final String IDENTIFIER field.", e);
+        }
     }
 
     /**
-     * Retrieves a new instance of an algorithm based on its unique string identifier.
-     * This factory method uses reflection to create the object.
-     *
-     * @param identifier The unique string key for the desired algorithm (e.g., "singleKeyXOR").
-     * @return An {@link Optional} containing the created {@code Algorithm} instance if the
-     * identifier is valid and instantiation is successful; otherwise, an empty {@code Optional}.
+     * Retrieves a new instance of an algorithm based on its identifier.
      */
     public static Optional<Algorithm> getAlgorithm(String identifier) {
-        Class<? extends Algorithm> algorithmClass = ALGORITHMS.get(identifier);
-
+        Class<? extends Algorithm> algorithmClass = ALGORITHMS.get(identifier.toLowerCase());
         if (algorithmClass != null) {
             try {
-                // Create a new instance of the algorithm class
                 return Optional.of(algorithmClass.getDeclaredConstructor().newInstance());
             } catch (Exception e) {
-                // If instantiation fails for any reason, return empty
                 return Optional.empty();
             }
         }
