@@ -3,3 +3,6 @@
 
 # IntelliJ IDE settings
 /.idea/
+
+/.env
+/src/main/resources/.env
