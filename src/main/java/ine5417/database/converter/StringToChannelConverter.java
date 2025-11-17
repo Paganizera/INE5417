@@ -1,6 +1,7 @@
 package ine5417.database.converter;
 import ine5417.database.Channel;
 import ine5417.database.ChannelService;
+import ine5417.exceptions.ChannelNotFoundException;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,10 @@ public class StringToChannelConverter implements Converter<String, Channel> {
         }
 
         UUID channelId = UUID.fromString(source);
-        return channelService.findById(channelId);
+        Channel channel = channelService.findById(channelId);
+        if (channel == null) {
+            throw new ChannelNotFoundException("Channel not found with id: " + source);
+        }
+        return channel;
     }
 }

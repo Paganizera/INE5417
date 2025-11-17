@@ -37,7 +37,8 @@ import java.util.List;
 )
 public class Application extends SpringBootServletInitializer {
     private final CipherController cipherController;
-    private final ChannelService  channelService;
+    private final ChannelService channelService;
+
     public Application(CipherController cipherController, ChannelService channelService) {
         this.cipherController = cipherController;
         this.channelService = channelService;
@@ -62,7 +63,7 @@ public class Application extends SpringBootServletInitializer {
     public Ciphered cipher(@PathVariable Channel channel,
                            @RequestParam("plaintext") String plaintext,
                            @RequestParam("cipher") String cipher,
-                           @RequestParam("key") String key) throws BadRequestException {
+                           @RequestParam("key") String key) {
         return cipherController.encrypt(plaintext, cipher, key);
     }
 
@@ -72,7 +73,7 @@ public class Application extends SpringBootServletInitializer {
     public Deciphered decipher(@PathVariable Channel channel,
                                @RequestParam("toDecrypt") String toDecrypt,
                                @RequestParam("cipher") String cipher,
-                               @RequestParam("key") String key) throws BadRequestException {
+                               @RequestParam("key") String key) {
 
         return cipherController.decrypt(toDecrypt, cipher, key);
     }
@@ -82,14 +83,14 @@ public class Application extends SpringBootServletInitializer {
     @GetMapping(value = Endpoints.BRUTEFORCE, produces = MediaType.APPLICATION_JSON_VALUE)
     public BruteForceResult bruteforce(@PathVariable Channel channel,
                                        @RequestParam("toDecrypt") String toDecrypt,
-                                       @RequestParam("cipher") String cipher) throws BadRequestException {
+                                       @RequestParam("cipher") String cipher) {
         return cipherController.bruteforce(toDecrypt, cipher);
     }
 
     @Operation(description = "ListCiphers")
     @ApiResponse(responseCode = "200", description = "Successfully listed ciphers")
     @GetMapping(value = Endpoints.LIST_CIPHERS, produces = MediaType.APPLICATION_JSON_VALUE)
-    public List<String> bruteforce() {
+    public List<String> listCiphers() {
         return cipherController.listCiphers();
     }
 }
