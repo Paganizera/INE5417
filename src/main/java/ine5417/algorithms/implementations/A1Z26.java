@@ -25,31 +25,39 @@ public class A1Z26 implements Algorithm {
                 ciphertext.append(c - 'a' + 1).append(" ");
             } else if (c >= 'A' && c <= 'Z') {
                 ciphertext.append(c - 'A' + 1).append(" ");
+            } else if (c == ' ') {
+                ciphertext.append(" ");
             }
         }
+
 
         return ciphertext.toString().trim().getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
     public byte[] decipher(byte[] toDecrypt, byte[] key) {
-        // A1Z26 is keyless, so the key is ignored.
         String text = new String(toDecrypt, StandardCharsets.UTF_8);
         StringBuilder plaintext = new StringBuilder();
 
-        // Split the string by one or more spaces
-        String[] tokens = text.trim().split("\\s+");
+        // Divide por espaço simples.
+        // O parâmetro -1 garante que tokens vazios não sejam descartados.
+        String[] tokens = text.split(" ", -1);
 
         for (String token : tokens) {
+            if (token.isEmpty()) {
+                // Se encontrarmos um token vazio, significa que havia dois espaços seguidos
+                // (o separador + o espaço do texto). Então, restauramos o espaço.
+                plaintext.append(" ");
+                continue;
+            }
+
             try {
                 int num = Integer.parseInt(token);
                 if (num >= 1 && num <= 26) {
-                    // Convert the number back to a lowercase letter
                     plaintext.append((char) ('a' + num - 1));
                 }
-                // Numbers outside the 1-26 range are ignored
             } catch (NumberFormatException e) {
-                // If a token is not a valid number, it's skipped
+                // Ignora tokens que não são números válidos
             }
         }
 
@@ -80,10 +88,6 @@ public class A1Z26 implements Algorithm {
         return finalResults;
     }
 
-    /**
-     * Calculates a score for a given plaintext based on a language's
-     * letter frequency table.
-     */
     private float calculateScore(byte[] plaintext, Map<Byte, Float> frequencyTable) {
         float score = 0;
         for (byte b : plaintext) {
